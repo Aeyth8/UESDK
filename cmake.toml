@@ -1,0 +1,117 @@
+# Reference: https://build-cpp.github.io/cmkr/cmake-toml
+# to build:
+# > cmake -B build
+# > cmake --build build --config Release
+[project]
+name = "sdk-proj"
+cmake-before=""" 
+add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
+"""
+cmake-after = """
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+
+set(ASMJIT_STATIC ON CACHE BOOL "" FORCE)
+
+if ("${CMAKE_BUILD_TYPE}" MATCHES "Release")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MT")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MT")
+
+    # Statically compile runtime
+    string(REGEX REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string(REGEX REPLACE "/MD" "/MT" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    string(REGEX REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+    string(REGEX REPLACE "/MD" "/MT" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
+
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
+    message(NOTICE "Building in Release mode")
+endif()
+
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    # The project is being built standalone
+    message(STATUS "UESDK: Building standalone")
+    set(UESDK_STANDALONE_BUILD ON)
+else()
+    # The project is being included as part of another project
+    message(STATUS "UESDK: Building as part of another project")
+    set(UESDK_STANDALONE_BUILD OFF)
+endif()
+"""
+
+[options]
+UESDK_FETCH_BDDISASM = false
+UESDK_FETCH_SPDLOG = false
+UESDK_FETCH_KANANLIB = false
+UESDK_FETCH_JSON = false
+UESDK_FETCH_TRACY = false
+UESDK_FETCH_GLM = false
+UESDK_STANDALONE_BUILD = false
+
+[conditions]
+fetch-kananlib = "UESDK_FETCH_KANANLIB OR UESDK_STANDALONE_BUILD"
+fetch-bddisasm = "UESDK_FETCH_BDDISASM OR UESDK_STANDALONE_BUILD"
+fetch-spdlog = "UESDK_FETCH_SPDLOG OR UESDK_STANDALONE_BUILD"
+fetch-json = "UESDK_FETCH_JSON OR UESDK_STANDALONE_BUILD"
+fetch-tracy = "UESDK_FETCH_TRACY OR UESDK_STANDALONE_BUILD"
+fetch-glm = "UESDK_FETCH_GLM OR UESDK_STANDALONE_BUILD"
+
+[fetch-content.bddisasm]
+condition = "fetch-bddisasm"
+git = "https://github.com/bitdefender/bddisasm"
+tag = "v1.37.0"
+shallow = true
+
+[fetch-content.spdlog]
+condition = "fetch-spdlog"
+git = "https://github.com/gabime/spdlog"
+tag = "v1.12.0"
+shallow = true
+
+[fetch-content.kananlib]
+condition = "fetch-kananlib"
+git = "https://github.com/cursey/kananlib"
+tag = "7aa1816f416d605189d9e3bb6a3c8819eb80ef01"
+
+[fetch-content.json]
+condition = "fetch-json"
+git = "https://github.com/nlohmann/json"
+tag = "bc889afb4c5bf1c0d8ee29ef35eaaf4c8bef8a5d"
+
+[fetch-content.tracy]
+condition = "fetch-tracy"
+git = "https://github.com/wolfpld/tracy"
+tag = "897aec5b062664d2485f4f9a213715d2e527e0ca"
+cmake-before="""
+set(TRACY_STATIC ON CACHE BOOL "" FORCE)
+set(TRACY_ENABLE OFF CACHE BOOL "" FORCE)
+"""
+
+[fetch-content.glm]
+condition = "fetch-glm"
+git = "https://github.com/g-truc/glm"
+tag = "cc98465e3508535ba8c7f6208df934c156a018dc"
+
+[target.uesdk]
+type = "static"
+sources = ["src/sdk/**.cpp", "src/sdk/**.c"]
+headers = ["src/sdk/**.hpp", "src/sdk/**.h"]
+include-directories = ["src/"]
+compile-options = ["/EHa", "/MP"]
+compile-features = ["cxx_std_23"]
+link-libraries = [
+    "spdlog",
+    "bddisasm",
+    "bdshemu",
+    "kananlib",
+    "glm",
+    "nlohmann_json",
+    "TracyClient"
+]
+
+[target.uesdk.properties]
+RUNTIME_OUTPUT_DIRECTORY_RELEASE = "${CMAKE_BINARY_DIR}/bin/${CMKR_TARGET}"
+RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO = "${CMAKE_BINARY_DIR}/bin/${CMKR_TARGET}"
+LIBRARY_OUTPUT_DIRECTORY_RELEASE = "${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
+LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO = "${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
+ARCHIVE_OUTPUT_DIRECTORY_RELEASE = "${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
+ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO = "${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
